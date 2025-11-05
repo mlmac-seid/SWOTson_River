@@ -1,0 +1,162 @@
+// created on:  2025-10-30
+// @author:     Jasper Heuer based on Gyula Mate Kovács
+// use:         collect and cloud mask Sentinel-2 imagery
+// comment:     2 geometries: river_mask is the outline of the river, roi_mask is the extent of the study area
+
+// get data ==================================================================================================================
+
+var dataset = ee.ImageCollection("COPERNICUS/S2_SR_HARMONIZED")
+  .filterDate("2023-07-01", "2023-07-31")
+  // .filter(ee.Filter.calendarRange(5, 9, "month"))
+  .filterBounds(river_mask); // filter by extent of river
+
+print(dataset); // to check the number of images in unfiltered collection
+
+// define functions ==========================================================================================================
+
+// define cloud function:
+function createSnowMask(image) {
+  var qa = image.select('SCL'); // extract QA_PIXEL band
+  
+  // create masks for snow, cloud, and cloud shadow:
+  var snowBits = (1<<11);
+  var cloudBits = (1<<7) | (1<<8) | (1<<9) | (1<<10);
+  var cloudShadowBits = (1<<3);
+  
+  var snowMask = qa.eq(11).rename('snowmask');
+  var cloudMask = qa.eq(7).or(qa.eq(8)).or(qa.eq(9)).or(qa.eq(10)).rename('cloudmask');
+  var cloudShadowMask = qa.eq(3).rename('shadowmask');
+  
+  // return image with the snow, cloud, and cloud shadow masks as bands:
+  return image.addBands([snowMask, cloudMask, cloudShadowMask]).clip(roi_mask);
+}
+
+
+// define scaling function:
+function applyScaleFactors(image) {
+  // scale optical bands and thermal band:
+  var opticalBands = image.select(["B2", "B3", "B4", "B8"]).divide(10000).toFloat(); // Sentinel-2 scaling
+  // add scaled bands to the image:
+  return image.addBands(opticalBands, null, true).clip(roi_mask);
+}
+
+
+// define cloud ratio function:
+function cloudRatio(image) {
+  // count cloud pixels:
+  var count = image.select("cloudmask").reduceRegion({
+    reducer: ee.Reducer.histogram(),
+    geometry: river_mask, // only ratio above the glacier is of interest
+    scale: 10,
+    maxPixels: 1e10
+  });
+  
+  // get histogram values:
+  var histogram = count.get("cloudmask").getInfo();
+  var ratio = null; // initialize ratio as null
+  
+  // handle cloud free/completely cloudy images (histrogram length = 1) issue:
+  if (histogram !== null) { // check if histogram exists
+    var vals   = ee.List(histogram.histogram);
+    var means  = histogram.bucketMeans; // plain JS array, e.g. [0], [1], or [0,1]
+
+    if (means.length === 1) {
+      // if the only value is 0, the image is fully clear - set ratio to 0
+      // if the only value is 1, the image is fully cloudy - set ratio to 1
+      ratio = means[0] === 0 ? 0 : 1;
+
+    } else {
+      // calculate cloudiness ratio:
+      var c0 = vals.get(0).getInfo(); // clear pixels
+      var c1 = vals.get(1).getInfo(); // cloudy pixels
+      ratio = c1 / (c0 + c1);
+    }
+  }
+  
+  // set cloud ratio as image property:
+  return image.set("CLOUD_RATIO", ratio);
+}
+  
+  
+/**  
+// OLDER VERSION that kept downloading do many images ========================================================================
+
+    var vals = ee.List(count.get("cloudmask").getInfo()["histogram"]);
+    // check if cloud free/completely cloudy and set ratio accordingly for special cases:
+    if (vals.size().getInfo() === 1) {
+      ratio = vals.get(0).getInfo() === 0 ? 1 : vals.get(0).getInfo() === vals.get(0).getInfo ? 0 : 0;
+      print(ratio);
+    } else {
+      // calculate cloudiness ratio:
+      var number_of_0_pixels = vals.get(0).getInfo(); // cloud free pixels
+      var number_of_1_pixels = vals.get(1).getInfo(); // cloudy pixels
+      ratio = number_of_1_pixels / (number_of_1_pixels + number_of_0_pixels);
+    }
+  }
+*/  
+
+// apply masking =============================================================================================================
+
+var dataset = dataset.map(applyScaleFactors).map(createSnowMask); // scale imagery
+
+// visualize imagery =========================================================================================================
+
+var visualization = {
+  bands: ['B4', 'B3', 'B2'],
+  min: 0.0,
+  max: 0.5,
+};
+
+// visualize true color image, snow mask and cloud mask:
+Map.addLayer(dataset.first(), visualization, 'True Color');
+Map.addLayer(dataset.first().select("snowmask"), {min: 0, max: 1, palette:['black', 'white']}, 'Snow Mask');
+Map.addLayer(dataset.first().select("cloudmask"), {min: 0, max:1, palette:['black', 'red']}, 'Cloud Mask');
+
+
+// count cloud pixels ========================================================================================================
+
+// create list of images:
+var n_img = dataset.size().getInfo();
+var image_list = dataset.toList(n_img);
+var image_list2 = ee.List([]); // create empty list to store images with cloud ratio
+
+
+// loop through images:
+for(var i = 0; i < n_img; i++) {
+  var image_i = ee.Image(image_list.get(i));
+  var with_ratio = cloudRatio(image_i);
+  image_list2 = image_list2.add(with_ratio);
+}
+
+
+// convert list of cloud ratio imagery into collection:
+var cloudratio_dataset = ee.ImageCollection.fromImages(image_list2);
+
+// filter collection by cloud ratio <= 0.1:
+var filtered_dataset = cloudratio_dataset.filter(ee.Filter.lte("CLOUD_RATIO", 0.2));
+
+print(filtered_dataset); // check number of images again
+
+// export imagery ============================================================================================================
+
+var id = filtered_dataset.aggregate_array("system:index");
+
+id.evaluate(function(list){
+  list.map(function(id){
+    var image = filtered_dataset.filter(ee.Filter.eq("system:index", id)).first();
+    var mask = filtered_dataset.filter(ee.Filter.eq("system:index", id)).first()
+      .select("cloudmask").lt(1); // reverse mask values
+    var masked_img = image.updateMask(mask);
+    
+    Export.image.toDrive({
+      image: masked_img.select(["B2", "B3", "B4", "B8"]),
+      scale: 10,
+      region: roi_mask,
+      crs: "EPSG:4326",
+      maxPixels: 1e13,
+      folder: "ECS_851", // change output folder here, if needed
+      description: id,
+      formatOptions: {cloudOptimized: true}
+    });
+  });
+});
