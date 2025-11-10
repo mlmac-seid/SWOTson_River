@@ -12,6 +12,7 @@ import rasterio
 import geopandas as gpd
 import rioxarray as rio
 import pandas as pd
+import matplotlib.pyplot as plt
 
 # Set working directory
 os.chdir('/Users/mayam/OneDrive/Documents/Duke University/ECS 851')
@@ -74,3 +75,11 @@ if os.path.exists(ru_file_name):
     os.remove(ru_file_name)
 # Save runoff to csv
 mar_runoff_df.to_csv(ru_file_name, index=False)
+
+# Plot daily total runoff for the catchment
+plt.figure(figsize=(20, 6))
+plt.plot(mar_runoff_df['DATE'], mar_runoff_df['total_runoff'])
+plt.xlabel('Date')
+plt.ylabel('Total Runoff (m^3)')
+plt.title('Total Runoff for Watson River Catchment for Summer 2024')
+plt.show()
