@@ -7,7 +7,7 @@ We plan to investigate how fluctuations in proglacial river width and water surf
 Are fluctuations in proglacial river width and water surface elevation correlated to supraglacial runoff?
 
 ## Datasets:
-* [MAR version 3.12](https://arcticdata.io/catalog/view/doi%3A10.18739%2FA2TT4FV6W)
+* [MAR version 3.14](https://zenodo.org/records/13151275)
 * [Sentinel-2 surface reflectance imagery](https://browser.dataspace.copernicus.eu/?zoom=5&lat=50.16282&lng=20.78613&demSource3D=%22MAPZEN%22&cloudCoverage=30&dateMode=SINGLE)
 * [SWOT River SP PID0](https://search.earthdata.nasa.gov/search?q=SWOT)
 * [SWORD](https://www.swordexplorer.com/)
