@@ -36,7 +36,7 @@ Maya will use MAR 2024 output to get total runoff for the catchment by aggregati
   - Better understanding of whether effective width/wse data can be used to predict/validate MAR runoff/melt estimates
 
 ## Study Area:
-![uaar_a_1433799_f0001_oc.jpg](3db0659e-4971-4a63-93c6-44c3722b4139.jpg)
+![uaar_a_1433799_f0001_oc.jpg](images/study_area.jpg)
 
 ## Team:
 ![thumbnail_Screenshot 2025-10-29 at 1.49.36 PM.png](c61da8ea-37e2-42e7-b805-31247f0bc396.png)
