@@ -39,7 +39,7 @@ Maya will use MAR 2024 output to get total runoff for the catchment by aggregati
 ![uaar_a_1433799_f0001_oc.jpg](images/study_area.jpg)
 
 ## Team:
-![thumbnail_Screenshot 2025-10-29 at 1.49.36 PM.png](team.png)
+![thumbnail_Screenshot 2025-10-29 at 1.49.36 PM.png](images/team.png)
 
 ## References:
 Mankoff et al. (2020): Greenland liquid water discharge from 1958 through 2019 
