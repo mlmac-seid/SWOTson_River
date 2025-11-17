@@ -39,7 +39,7 @@ watson_river_basin = watson_river_basin.to_crs(mar.rio.crs)
 mar_wr = mar.rio.clip(watson_river_basin.geometry, crs=watson_river_basin.crs, drop=True)
 
 # Subset for summer
-mar_wr = mar_wr.sel(TIME=slice("2024-05-01", "2024-09-01"))
+mar_wr = mar_wr.sel(TIME=slice("2024-06-01", "2024-09-01"))
 
 # Save to a new NetCDF
 if os.path.exists('/Users/mayam/OneDrive/Documents/Duke University/ECS 851/SWOTson_River/mar_watson_river_clipped.nc'):
