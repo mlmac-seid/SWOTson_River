@@ -15,12 +15,20 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import contextily as ctx
 import pyproj
+import datetime as datetime
+from scipy import stats
 
 # Set working directory
 os.chdir('/Users/mayam/OneDrive/Documents/Duke University/ECS 851')
 
 # Open MAR file
 mar = xr.open_dataset('MARv3.14.1-5km-daily-ERA5-2024.nc')
+
+# Open SWOT reach file
+swot_df_filtered = pd.read_csv('/Users/mayam/OneDrive/Documents/Duke University/ECS 851/SWOTson_River/data/Watson_filtered_reach_df.csv')
+
+# Open SWOT node 912708000050221 file
+swot_node_912708000050221 = pd.read_csv('/Users/mayam/OneDrive/Documents/Duke University/ECS 851/SWOTson_River/data/SWOT_node_912708000050221.csv')
 
 # Open Watson River Basin delineation
 watson_river_basin = gpd.read_file('/Users/mayam/OneDrive/Documents/Duke University/ECS 851/SWOTson_River/watson-river-basin-delineation/watson_river_basin.shp')
@@ -130,4 +138,395 @@ ax.set_title("Watson River Ice Sheet Catchment", fontsize=14)
 ax.set_xlabel("Longitude")
 ax.set_ylabel("Latitude")
 plt.tight_layout()
+plt.show()
+
+# Filter SWOT to one reach for comparison
+reach_91270800051_mask = swot_df_filtered['reach_id'] ==  91270800051
+swot_reach_91270800051 = swot_df_filtered[reach_91270800051_mask]
+
+# Convert SWOT time to datetime array
+swot_reach_91270800051['time_str'] = pd.to_datetime(swot_reach_91270800051['time_str'])
+swot_node_912708000050221['time_str'] = pd.to_datetime(swot_node_912708000050221['time_str'])
+
+# Rename SWOT time to DATE
+swot_reach_91270800051 = swot_reach_91270800051.rename(columns={'time_str': 'DATE'})
+swot_node_912708000050221 = swot_node_912708000050221.rename(columns={'time_str': 'DATE'})
+
+# Put MAR time into UTC
+mar_runoff_df['DATE'] = mar_runoff_df['DATE'].dt.tz_localize('UTC')
+
+# Merge MAR runoff df to SWOT reach 91270800051 df
+merged_swot_reach_91270800051_mar = pd.merge_asof(swot_reach_91270800051, mar_runoff_df, on='DATE')
+
+# Merge MAR runoff df to SWOT node 912708000050221 df
+merged_swot_node_912708000050221_mar = pd.merge_asof(swot_node_912708000050221, mar_runoff_df, on='DATE')
+
+# Scatter plot of width vs runoff, colored by quality flag:
+quality_flags = merged_swot_reach_91270800051_mar['reach_q_b'].unique()
+colors = plt.cm.tab10(np.linspace(0, 1, len(quality_flags)))
+color_map = dict(zip(quality_flags, colors))
+
+plt.scatter(
+    merged_swot_reach_91270800051_mar['width'],
+    merged_swot_reach_91270800051_mar['total_runoff'],
+    c=merged_swot_reach_91270800051_mar['reach_q_b'].map(color_map),
+    s=50,
+    edgecolor='k')
+
+for flag in quality_flags:
+    plt.scatter([], [], color=color_map[flag], label=f'{flag}')
+plt.legend(title='Quality Flag', bbox_to_anchor=(1, 1))
+
+x = merged_swot_reach_91270800051_mar['width']
+y = merged_swot_reach_91270800051_mar['total_runoff']
+
+x = pd.to_numeric(x, errors='coerce')
+y = pd.to_numeric(y, errors='coerce')
+mask = np.isfinite(x) & np.isfinite(y)
+x = x[mask]
+y = y[mask]
+m, b = np.polyfit(x, y, 1)
+plt.plot(x, m*x + b, color='red')
+
+slope, intercept, r_value, p_value, std_err = stats.linregress(x, y)
+
+r2 = r_value**2
+p_formatted = f"{p_value:.4f}"
+stats_text = f"$R^2$ = {r2:.3f}\n p = {p_formatted}"
+plt.text(
+    0.05, 0.95, stats_text,
+    transform=plt.gca().transAxes,
+    fontsize=12,
+    verticalalignment='top',
+    bbox=dict(boxstyle='round', facecolor='white', alpha=0.8, edgecolor='gray'))
+
+plt.xlabel('Width (m)')
+plt.ylabel('Total Runoff (m³)')
+plt.title('Relationship Between Watson River Total Runoff and Width')
+plt.show()
+
+# Scatter plot of width vs runoff, but only good quality flags
+good_flags = [532494, 524290, 8206]
+quality_points = merged_swot_reach_91270800051_mar[
+    merged_swot_reach_91270800051_mar['reach_q_b'].isin(good_flags)]
+    
+quality_flags = quality_points['reach_q_b'].unique()
+colors = plt.cm.tab10(np.linspace(0, 1, len(quality_flags)))
+color_map = dict(zip(quality_flags, colors))
+
+plt.scatter(
+    quality_points['width'],
+    quality_points['total_runoff'],
+    c=quality_points['reach_q_b'].map(color_map),
+    s=50,
+    edgecolor='k')
+
+for flag in quality_flags:
+    plt.scatter([], [], color=color_map[flag], label=f'{flag}')
+plt.legend(title='Quality Flag', bbox_to_anchor=(1, 1))
+
+x = quality_points['width']
+y = quality_points['total_runoff']
+
+x = pd.to_numeric(x, errors='coerce')
+y = pd.to_numeric(y, errors='coerce')
+mask = np.isfinite(x) & np.isfinite(y)
+x = x[mask]
+y = y[mask]
+m, b = np.polyfit(x, y, 1)
+plt.plot(x, m*x + b, color='red')
+
+slope, intercept, r_value, p_value, std_err = stats.linregress(x, y)
+
+r2 = r_value**2
+p_formatted = f"{p_value:.4f}"
+stats_text = f"$R^2$ = {r2:.3f}\n p = {p_formatted}"
+plt.text(
+    0.05, 0.95, stats_text,
+    transform=plt.gca().transAxes,
+    fontsize=12,
+    verticalalignment='top',
+    bbox=dict(boxstyle='round', facecolor='white', alpha=0.8, edgecolor='gray'))
+
+plt.xlabel('Width (m)')
+plt.ylabel('Total Runoff (m³)')
+plt.title('Relationship Between Watson River Total Runoff and Width')
+plt.show()
+
+# Scatter plot of width vs runoff, but only best quality flag
+good_flags = [8206]
+quality_points = merged_swot_reach_91270800051_mar[
+    merged_swot_reach_91270800051_mar['reach_q_b'].isin(good_flags)]
+    
+quality_flags = quality_points['reach_q_b'].unique()
+colors = plt.cm.tab10(np.linspace(0, 1, len(quality_flags)))
+color_map = dict(zip(quality_flags, colors))
+
+plt.scatter(
+    quality_points['width'],
+    quality_points['total_runoff'],
+    c=quality_points['reach_q_b'].map(color_map),
+    s=50,
+    edgecolor='k')
+
+for flag in quality_flags:
+    plt.scatter([], [], color=color_map[flag], label=f'{flag}')
+plt.legend(title='Quality Flag', bbox_to_anchor=(1, 1))
+
+x = quality_points['width']
+y = quality_points['total_runoff']
+
+x = pd.to_numeric(x, errors='coerce')
+y = pd.to_numeric(y, errors='coerce')
+mask = np.isfinite(x) & np.isfinite(y)
+x = x[mask]
+y = y[mask]
+m, b = np.polyfit(x, y, 1)
+plt.plot(x, m*x + b, color='red')
+
+slope, intercept, r_value, p_value, std_err = stats.linregress(x, y)
+
+r2 = r_value**2
+p_formatted = f"{p_value:.4f}"
+stats_text = f"$R^2$ = {r2:.3f}\n p = {p_formatted}"
+plt.text(
+    0.05, 0.95, stats_text,
+    transform=plt.gca().transAxes,
+    fontsize=12,
+    verticalalignment='top',
+    bbox=dict(boxstyle='round', facecolor='white', alpha=0.8, edgecolor='gray'))
+
+plt.xlabel('Width (m)')
+plt.ylabel('Total Runoff (m³)')
+plt.title('Relationship Between Watson River Total Runoff and Width')
+plt.show()
+
+# Scatter plot of width vs runoff, colored by quality flag for node 912708000050221
+quality_flags = merged_swot_node_912708000050221_mar['node_q_b'].unique()
+colors = plt.cm.tab10(np.linspace(0, 1, len(quality_flags)))
+color_map = dict(zip(quality_flags, colors))
+
+plt.scatter(
+    merged_swot_node_912708000050221_mar['width'],
+    merged_swot_node_912708000050221_mar['total_runoff'],
+    c=merged_swot_node_912708000050221_mar['node_q_b'].map(color_map),
+    s=50,
+    edgecolor='k')
+
+for flag in quality_flags:
+    plt.scatter([], [], color=color_map[flag], label=f'{flag}')
+plt.legend(title='Quality Flag', bbox_to_anchor=(1, 1))
+
+x = merged_swot_node_912708000050221_mar['width']
+y = merged_swot_node_912708000050221_mar['total_runoff']
+
+x = pd.to_numeric(x, errors='coerce')
+y = pd.to_numeric(y, errors='coerce')
+mask = np.isfinite(x) & np.isfinite(y)
+x = x[mask]
+y = y[mask]
+m, b = np.polyfit(x, y, 1)
+plt.plot(x, m*x + b, color='red')
+
+slope, intercept, r_value, p_value, std_err = stats.linregress(x, y)
+
+r2 = r_value**2
+p_formatted = f"{p_value:.4f}"
+stats_text = f"$R^2$ = {r2:.3f}\n p = {p_formatted}"
+plt.text(
+    0.05, 0.95, stats_text,
+    transform=plt.gca().transAxes,
+    fontsize=12,
+    verticalalignment='top',
+    bbox=dict(boxstyle='round', facecolor='white', alpha=0.8, edgecolor='gray'))
+
+plt.xlabel('Width (m)')
+plt.ylabel('Total Runoff (m³)')
+plt.title('Relationship Between Watson River Total Runoff and Width')
+plt.show()
+
+###################################################################################
+# TODO: scatterplot with wse on x-axis and runoff on y-axis with line of best fit and R^2, with points colored by reach_q (1 is suspect and 2 is degraded)
+# Scatter plot of wse vs runoff, colored by quality flag:
+quality_flags = merged_swot_reach_91270800051_mar['reach_q_b'].unique()
+colors = plt.cm.tab10(np.linspace(0, 1, len(quality_flags)))
+color_map = dict(zip(quality_flags, colors))
+
+plt.scatter(
+    merged_swot_reach_91270800051_mar['wse'],
+    merged_swot_reach_91270800051_mar['total_runoff'],
+    c=merged_swot_reach_91270800051_mar['reach_q_b'].map(color_map),
+    s=50,
+    edgecolor='k')
+
+for flag in quality_flags:
+    plt.scatter([], [], color=color_map[flag], label=f'{flag}')
+plt.legend(title='Quality Flag', bbox_to_anchor=(1, 1))
+
+x = merged_swot_reach_91270800051_mar['wse']
+y = merged_swot_reach_91270800051_mar['total_runoff']
+
+x = pd.to_numeric(x, errors='coerce')
+y = pd.to_numeric(y, errors='coerce')
+mask = np.isfinite(x) & np.isfinite(y)
+x = x[mask]
+y = y[mask]
+m, b = np.polyfit(x, y, 1)
+plt.plot(x, m*x + b, color='red')
+
+slope, intercept, r_value, p_value, std_err = stats.linregress(x, y)
+
+r2 = r_value**2
+p_formatted = f"{p_value:.4f}"
+stats_text = f"$R^2$ = {r2:.3f}\n p = {p_formatted}"
+plt.text(
+    0.05, 0.95, stats_text,
+    transform=plt.gca().transAxes,
+    fontsize=12,
+    verticalalignment='top',
+    bbox=dict(boxstyle='round', facecolor='white', alpha=0.8, edgecolor='gray'))
+
+plt.xlabel('WSE (m)')
+plt.ylabel('Total Runoff (m³)')
+plt.title('Relationship Between Watson River Total Runoff and WSE')
+plt.show()
+
+# Scatter plot of wse vs runoff, but only good quality flags
+good_flags = [532494, 524290, 8206]
+quality_points = merged_swot_reach_91270800051_mar[
+    merged_swot_reach_91270800051_mar['reach_q_b'].isin(good_flags)]
+    
+quality_flags = quality_points['reach_q_b'].unique()
+colors = plt.cm.tab10(np.linspace(0, 1, len(quality_flags)))
+color_map = dict(zip(quality_flags, colors))
+
+plt.scatter(
+    quality_points['wse'],
+    quality_points['total_runoff'],
+    c=quality_points['reach_q_b'].map(color_map),
+    s=50,
+    edgecolor='k')
+
+for flag in quality_flags:
+    plt.scatter([], [], color=color_map[flag], label=f'{flag}')
+plt.legend(title='Quality Flag', bbox_to_anchor=(1, 1))
+
+x = quality_points['wse']
+y = quality_points['total_runoff']
+
+x = pd.to_numeric(x, errors='coerce')
+y = pd.to_numeric(y, errors='coerce')
+mask = np.isfinite(x) & np.isfinite(y)
+x = x[mask]
+y = y[mask]
+m, b = np.polyfit(x, y, 1)
+plt.plot(x, m*x + b, color='red')
+
+slope, intercept, r_value, p_value, std_err = stats.linregress(x, y)
+
+r2 = r_value**2
+p_formatted = f"{p_value:.4f}"
+stats_text = f"$R^2$ = {r2:.3f}\n p = {p_formatted}"
+plt.text(
+    0.05, 0.95, stats_text,
+    transform=plt.gca().transAxes,
+    fontsize=12,
+    verticalalignment='top',
+    bbox=dict(boxstyle='round', facecolor='white', alpha=0.8, edgecolor='gray'))
+
+plt.xlabel('WSE (m)')
+plt.ylabel('Total Runoff (m³)')
+plt.title('Relationship Between Watson River Total Runoff and WSE')
+plt.show()
+
+# Scatter plot of wse vs runoff, but only best quality flag
+good_flags = [8206]
+quality_points = merged_swot_reach_91270800051_mar[
+    merged_swot_reach_91270800051_mar['reach_q_b'].isin(good_flags)]
+    
+quality_flags = quality_points['reach_q_b'].unique()
+colors = plt.cm.tab10(np.linspace(0, 1, len(quality_flags)))
+color_map = dict(zip(quality_flags, colors))
+
+plt.scatter(
+    quality_points['wse'],
+    quality_points['total_runoff'],
+    c=quality_points['reach_q_b'].map(color_map),
+    s=50,
+    edgecolor='k')
+
+for flag in quality_flags:
+    plt.scatter([], [], color=color_map[flag], label=f'{flag}')
+plt.legend(title='Quality Flag', bbox_to_anchor=(1, 1))
+
+x = quality_points['wse']
+y = quality_points['total_runoff']
+
+x = pd.to_numeric(x, errors='coerce')
+y = pd.to_numeric(y, errors='coerce')
+mask = np.isfinite(x) & np.isfinite(y)
+x = x[mask]
+y = y[mask]
+m, b = np.polyfit(x, y, 1)
+plt.plot(x, m*x + b, color='red')
+
+slope, intercept, r_value, p_value, std_err = stats.linregress(x, y)
+
+r2 = r_value**2
+p_formatted = f"{p_value:.4f}"
+stats_text = f"$R^2$ = {r2:.3f}\n p = {p_formatted}"
+plt.text(
+    0.05, 0.95, stats_text,
+    transform=plt.gca().transAxes,
+    fontsize=12,
+    verticalalignment='top',
+    bbox=dict(boxstyle='round', facecolor='white', alpha=0.8, edgecolor='gray'))
+
+plt.xlabel('WSE (m)')
+plt.ylabel('Total Runoff (m³)')
+plt.title('Relationship Between Watson River Total Runoff and WSE')
+plt.show()
+
+# Scatter plot of wse vs runoff, colored by quality flag for node 912708000050221
+quality_flags = merged_swot_node_912708000050221_mar['node_q_b'].unique()
+colors = plt.cm.tab10(np.linspace(0, 1, len(quality_flags)))
+color_map = dict(zip(quality_flags, colors))
+
+plt.scatter(
+    merged_swot_node_912708000050221_mar['wse'],
+    merged_swot_node_912708000050221_mar['total_runoff'],
+    c=merged_swot_node_912708000050221_mar['node_q_b'].map(color_map),
+    s=50,
+    edgecolor='k')
+
+for flag in quality_flags:
+    plt.scatter([], [], color=color_map[flag], label=f'{flag}')
+plt.legend(title='Quality Flag', bbox_to_anchor=(1, 1))
+
+x = merged_swot_node_912708000050221_mar['wse']
+y = merged_swot_node_912708000050221_mar['total_runoff']
+
+x = pd.to_numeric(x, errors='coerce')
+y = pd.to_numeric(y, errors='coerce')
+mask = np.isfinite(x) & np.isfinite(y)
+x = x[mask]
+y = y[mask]
+m, b = np.polyfit(x, y, 1)
+plt.plot(x, m*x + b, color='red')
+
+slope, intercept, r_value, p_value, std_err = stats.linregress(x, y)
+
+r2 = r_value**2
+p_formatted = f"{p_value:.4f}"
+stats_text = f"$R^2$ = {r2:.3f}\n p = {p_formatted}"
+plt.text(
+    0.05, 0.95, stats_text,
+    transform=plt.gca().transAxes,
+    fontsize=12,
+    verticalalignment='top',
+    bbox=dict(boxstyle='round', facecolor='white', alpha=0.8, edgecolor='gray'))
+
+plt.xlabel('WSE (m)')
+plt.ylabel('Total Runoff (m³)')
+plt.title('Relationship Between Watson River Total Runoff and WSE')
 plt.show()
