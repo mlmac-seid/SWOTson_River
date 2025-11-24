@@ -30,6 +30,9 @@ swot_df_filtered = pd.read_csv('/Users/mayam/OneDrive/Documents/Duke University/
 # Open SWOT node 912708000050221 file
 swot_node_912708000050221 = pd.read_csv('/Users/mayam/OneDrive/Documents/Duke University/ECS 851/SWOTson_River/data/SWOT_node_912708000050221.csv')
 
+# Open Sentinel-2 effective width file
+effective_width = pd.read_csv('/Users/mayam/OneDrive/Documents/Duke University/ECS 851/SWOTson_River/data/effective_width.csv')
+
 # Open Watson River Basin delineation
 watson_river_basin = gpd.read_file('/Users/mayam/OneDrive/Documents/Duke University/ECS 851/SWOTson_River/watson-river-basin-delineation/watson_river_basin.shp')
 
@@ -164,8 +167,16 @@ swot_node_912708000050221 = swot_node_912708000050221.rename(columns={'time_str'
 swot_reach_91270800041 = swot_reach_91270800041.rename(columns={'time_str': 'DATE'})
 swot_reach_91270800031 = swot_reach_91270800031.rename(columns={'time_str': 'DATE'})
 
+# Rename effective width date to DATE
+effective_width = effective_width.rename(columns={'date': 'DATE'})
+
 # Put MAR time into UTC
 mar_runoff_df['DATE'] = mar_runoff_df['DATE'].dt.tz_localize('UTC')
+
+# Put effective width date into UTC
+effective_width['DATE'] = pd.to_datetime(effective_width['DATE'])
+effective_width['DATE'] = effective_width['DATE'].dt.tz_localize('UTC')
+effective_width = effective_width[effective_width['DATE'].dt.year == 2024]
 
 # Merge MAR runoff df to SWOT reach 91270800051 df
 merged_swot_reach_91270800051_mar = pd.merge_asof(swot_reach_91270800051, mar_runoff_df, on='DATE')
@@ -178,6 +189,9 @@ merged_swot_reach_91270800031_mar = pd.merge_asof(swot_reach_91270800031, mar_ru
 
 # Merge MAR runoff df to SWOT node 912708000050221 df
 merged_swot_node_912708000050221_mar = pd.merge_asof(swot_node_912708000050221, mar_runoff_df, on='DATE')
+
+# Merge MAR runoff df to effective width df
+merged_effective_width_mar = pd.merge_asof(effective_width, mar_runoff_df, on='DATE')
 
 # Scatter plot of width vs runoff, colored by quality flag for middle reach:
 quality_flags = merged_swot_reach_91270800051_mar['reach_q_b'].unique()
@@ -545,4 +559,269 @@ plt.text(
 plt.xlabel('WSE (m)')
 plt.ylabel('Total Runoff (m³)')
 plt.title('Relationship Between Watson River Total Runoff and WSE')
+plt.show()
+
+
+# Scatter plot of effective width vs runoff
+sections = merged_effective_width_mar['section'].unique()
+colors = plt.cm.tab10(np.linspace(0, 1, len(sections)))
+color_map = dict(zip(sections, colors))
+
+
+plt.scatter(
+    merged_effective_width_mar['eff_width'],
+    merged_effective_width_mar['total_runoff'],
+    c=merged_effective_width_mar['section'].map(color_map),
+    s=50,
+    edgecolor='k')
+
+for sec in sections:
+    plt.scatter([], [], color=color_map[sec], label=f'{sec}')
+plt.legend(title='Reach', bbox_to_anchor=(1, 1))
+
+x = merged_effective_width_mar['eff_width']
+y = merged_effective_width_mar['total_runoff']
+
+x = pd.to_numeric(x, errors='coerce')
+y = pd.to_numeric(y, errors='coerce')
+mask = np.isfinite(x) & np.isfinite(y)
+x = x[mask]
+y = y[mask]
+m, b = np.polyfit(x, y, 1)
+plt.plot(x, m*x + b, color='red')
+
+slope, intercept, r_value, p_value, std_err = stats.linregress(x, y)
+
+r2 = r_value**2
+p_formatted = f"{p_value:.4f}"
+stats_text = f"$R^2$ = {r2:.3f}\n p = {p_formatted}"
+plt.text(
+    0.05, 0.95, stats_text,
+    transform=plt.gca().transAxes,
+    fontsize=12,
+    verticalalignment='top',
+    bbox=dict(boxstyle='round', facecolor='white', alpha=0.8, edgecolor='gray'))
+
+plt.xlabel('Effective Width (m)')
+plt.ylabel('Total Runoff (m³)')
+plt.title('Relationship Between Watson River Total Runoff and Width')
+plt.show()
+
+# Scatter plot of effective width vs total runoff for upper reach
+upper_reach = [1]
+upper_reach = merged_effective_width_mar[
+    merged_effective_width_mar['section'].isin(upper_reach)]
+
+sections = merged_effective_width_mar['section'].unique()
+colors = plt.cm.tab10(np.linspace(0, 1, len(sections)))
+color_map = dict(zip(sections, colors))
+
+plt.scatter(
+    upper_reach['eff_width'],
+    upper_reach['total_runoff'],
+    c=upper_reach['section'].map(color_map),
+    s=50,
+    edgecolor='k')
+
+x = upper_reach['eff_width']
+y = upper_reach['total_runoff']
+
+x = pd.to_numeric(x, errors='coerce')
+y = pd.to_numeric(y, errors='coerce')
+mask = np.isfinite(x) & np.isfinite(y)
+x = x[mask]
+y = y[mask]
+m, b = np.polyfit(x, y, 1)
+plt.plot(x, m*x + b, color='red')
+
+slope, intercept, r_value, p_value, std_err = stats.linregress(x, y)
+
+r2 = r_value**2
+p_formatted = f"{p_value:.4f}"
+stats_text = f"$R^2$ = {r2:.3f}\n p = {p_formatted}"
+plt.text(
+    0.05, 0.95, stats_text,
+    transform=plt.gca().transAxes,
+    fontsize=12,
+    verticalalignment='top',
+    bbox=dict(boxstyle='round', facecolor='white', alpha=0.8, edgecolor='gray'))
+
+plt.xlabel('Effective Width (m)')
+plt.ylabel('Total Runoff (m³)')
+plt.title('Relationship Between Watson River Total Runoff and Width')
+plt.show()
+
+# Scatter plot of effective width vs total runoff for middle reach
+middle_reach = [2]
+middle_reach = merged_effective_width_mar[
+    merged_effective_width_mar['section'].isin(middle_reach)]
+
+sections = merged_effective_width_mar['section'].unique()
+colors = plt.cm.tab10(np.linspace(0, 1, len(sections)))
+color_map = dict(zip(sections, colors))
+
+plt.scatter(
+    middle_reach['eff_width'],
+    middle_reach['total_runoff'],
+    c=upper_reach['section'].map(color_map),
+    s=50,
+    edgecolor='k')
+
+x = middle_reach['eff_width']
+y = middle_reach['total_runoff']
+
+x = pd.to_numeric(x, errors='coerce')
+y = pd.to_numeric(y, errors='coerce')
+mask = np.isfinite(x) & np.isfinite(y)
+x = x[mask]
+y = y[mask]
+m, b = np.polyfit(x, y, 1)
+plt.plot(x, m*x + b, color='red')
+
+slope, intercept, r_value, p_value, std_err = stats.linregress(x, y)
+
+r2 = r_value**2
+p_formatted = f"{p_value:.4f}"
+stats_text = f"$R^2$ = {r2:.3f}\n p = {p_formatted}"
+plt.text(
+    0.05, 0.95, stats_text,
+    transform=plt.gca().transAxes,
+    fontsize=12,
+    verticalalignment='top',
+    bbox=dict(boxstyle='round', facecolor='white', alpha=0.8, edgecolor='gray'))
+
+plt.xlabel('Effective Width (m)')
+plt.ylabel('Total Runoff (m³)')
+plt.title('Relationship Between Watson River Total Runoff and Width')
+plt.show()
+
+# Scatter plot of effective width vs total runoff for lower reach
+lower_reach = [3]
+lower_reach = merged_effective_width_mar[
+    merged_effective_width_mar['section'].isin(lower_reach)]
+
+sections = merged_effective_width_mar['section'].unique()
+colors = plt.cm.tab10(np.linspace(0, 1, len(sections)))
+color_map = dict(zip(sections, colors))
+
+plt.scatter(
+    lower_reach['eff_width'],
+    lower_reach['total_runoff'],
+    c=upper_reach['section'].map(color_map),
+    s=50,
+    edgecolor='k')
+
+x = lower_reach['eff_width']
+y = lower_reach['total_runoff']
+
+x = pd.to_numeric(x, errors='coerce')
+y = pd.to_numeric(y, errors='coerce')
+mask = np.isfinite(x) & np.isfinite(y)
+x = x[mask]
+y = y[mask]
+m, b = np.polyfit(x, y, 1)
+plt.plot(x, m*x + b, color='red')
+
+slope, intercept, r_value, p_value, std_err = stats.linregress(x, y)
+
+r2 = r_value**2
+p_formatted = f"{p_value:.4f}"
+stats_text = f"$R^2$ = {r2:.3f}\n p = {p_formatted}"
+plt.text(
+    0.05, 0.95, stats_text,
+    transform=plt.gca().transAxes,
+    fontsize=12,
+    verticalalignment='top',
+    bbox=dict(boxstyle='round', facecolor='white', alpha=0.8, edgecolor='gray'))
+
+plt.xlabel('Effective Width (m)')
+plt.ylabel('Total Runoff (m³)')
+plt.title('Relationship Between Watson River Total Runoff and Width')
+plt.show()
+
+# Effective width and SWOT width timeseries for upper reach
+plt.figure(figsize=(12, 10))
+upper_reach = [1]
+upper_reach = merged_effective_width_mar[
+    merged_effective_width_mar['section'].isin(upper_reach)]
+plt.scatter(
+    upper_reach['DATE'],
+    upper_reach['eff_width'],
+    label='Effective Width (Sentinel-2)',
+    color='steelblue',
+    s=50,        # point size
+    edgecolor='k',
+    alpha=0.8)
+plt.scatter(
+    merged_swot_reach_91270800051_mar['DATE'],
+    merged_swot_reach_91270800051_mar['width'],
+    label='Width (SWOT)',
+    color='darkorange',
+    s=50,
+    edgecolor='k',
+    alpha=0.8)
+plt.xlabel('Date')
+plt.ylabel('Width (m)')
+plt.title('Sentinel-2 Effective Width and SWOT Width (Upper Reach)')
+plt.legend()
+plt.grid(True, linestyle='--', alpha=0.6)
+plt.tight_layout()
+plt.show()
+
+# Effective width and SWOT width timeseries for middle reach
+plt.figure(figsize=(12, 10))
+middle_reach = [2]
+middle_reach = merged_effective_width_mar[
+    merged_effective_width_mar['section'].isin(middle_reach)]
+plt.scatter(
+    middle_reach['DATE'],
+    middle_reach['eff_width'],
+    label='Effective Width (Sentinel-2)',
+    color='steelblue',
+    s=50,        # point size
+    edgecolor='k',
+    alpha=0.8)
+plt.scatter(
+    merged_swot_reach_91270800041_mar['DATE'],
+    merged_swot_reach_91270800041_mar['width'],
+    label='Width (SWOT)',
+    color='darkorange',
+    s=50,
+    edgecolor='k',
+    alpha=0.8)
+plt.xlabel('Date')
+plt.ylabel('Width (m)')
+plt.title('Sentinel-2 Effective Width and SWOT Width (Middle Reach)')
+plt.legend()
+plt.grid(True, linestyle='--', alpha=0.6)
+plt.tight_layout()
+plt.show()
+
+# Effective width and SWOT width timeseries for lower reach
+plt.figure(figsize=(12, 10))
+lower_reach = [3]
+lower_reach = merged_effective_width_mar[
+    merged_effective_width_mar['section'].isin(lower_reach)]
+plt.scatter(
+    lower_reach['DATE'],
+    lower_reach['eff_width'],
+    label='Effective Width (Sentinel-2)',
+    color='steelblue',
+    s=50,        # point size
+    edgecolor='k',
+    alpha=0.8)
+plt.scatter(
+    merged_swot_reach_91270800031_mar['DATE'],
+    merged_swot_reach_91270800031_mar['width'],
+    label='Width (SWOT)',
+    color='darkorange',
+    s=50,
+    edgecolor='k',
+    alpha=0.8)
+plt.xlabel('Date')
+plt.ylabel('Width (m)')
+plt.title('Sentinel-2 Effective Width and SWOT Width (Lower Reach)')
+plt.legend()
+plt.grid(True, linestyle='--', alpha=0.6)
+plt.tight_layout()
 plt.show()
