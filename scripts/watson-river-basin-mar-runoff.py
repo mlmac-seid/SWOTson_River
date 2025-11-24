@@ -140,17 +140,29 @@ ax.set_ylabel("Latitude")
 plt.tight_layout()
 plt.show()
 
-# Filter SWOT to one reach for comparison
+# Filter SWOT to uppermost reach for comparison
 reach_91270800051_mask = swot_df_filtered['reach_id'] ==  91270800051
 swot_reach_91270800051 = swot_df_filtered[reach_91270800051_mask]
+
+# Filter SWOT to middle reach for comparison
+reach_91270800041_mask = swot_df_filtered['reach_id'] ==  91270800041
+swot_reach_91270800041 = swot_df_filtered[reach_91270800041_mask]
+
+# Filter SWOT to lowest reach for comparison
+reach_91270800031_mask = swot_df_filtered['reach_id'] ==  91270800031
+swot_reach_91270800031 = swot_df_filtered[reach_91270800031_mask]
 
 # Convert SWOT time to datetime array
 swot_reach_91270800051['time_str'] = pd.to_datetime(swot_reach_91270800051['time_str'])
 swot_node_912708000050221['time_str'] = pd.to_datetime(swot_node_912708000050221['time_str'])
+swot_reach_91270800041['time_str'] = pd.to_datetime(swot_reach_91270800041['time_str'])
+swot_reach_91270800031['time_str'] = pd.to_datetime(swot_reach_91270800031['time_str'])
 
 # Rename SWOT time to DATE
 swot_reach_91270800051 = swot_reach_91270800051.rename(columns={'time_str': 'DATE'})
 swot_node_912708000050221 = swot_node_912708000050221.rename(columns={'time_str': 'DATE'})
+swot_reach_91270800041 = swot_reach_91270800041.rename(columns={'time_str': 'DATE'})
+swot_reach_91270800031 = swot_reach_91270800031.rename(columns={'time_str': 'DATE'})
 
 # Put MAR time into UTC
 mar_runoff_df['DATE'] = mar_runoff_df['DATE'].dt.tz_localize('UTC')
@@ -158,10 +170,16 @@ mar_runoff_df['DATE'] = mar_runoff_df['DATE'].dt.tz_localize('UTC')
 # Merge MAR runoff df to SWOT reach 91270800051 df
 merged_swot_reach_91270800051_mar = pd.merge_asof(swot_reach_91270800051, mar_runoff_df, on='DATE')
 
+# Merge MAR runoff df to SWOT reach 91270800041 df
+merged_swot_reach_91270800041_mar = pd.merge_asof(swot_reach_91270800041, mar_runoff_df, on='DATE')
+
+# Merge MAR runoff df to SWOT reach 91270800031 df
+merged_swot_reach_91270800031_mar = pd.merge_asof(swot_reach_91270800031, mar_runoff_df, on='DATE')
+
 # Merge MAR runoff df to SWOT node 912708000050221 df
 merged_swot_node_912708000050221_mar = pd.merge_asof(swot_node_912708000050221, mar_runoff_df, on='DATE')
 
-# Scatter plot of width vs runoff, colored by quality flag:
+# Scatter plot of width vs runoff, colored by quality flag for middle reach:
 quality_flags = merged_swot_reach_91270800051_mar['reach_q_b'].unique()
 colors = plt.cm.tab10(np.linspace(0, 1, len(quality_flags)))
 color_map = dict(zip(quality_flags, colors))
@@ -345,8 +363,6 @@ plt.ylabel('Total Runoff (m³)')
 plt.title('Relationship Between Watson River Total Runoff and Width')
 plt.show()
 
-###################################################################################
-# TODO: scatterplot with wse on x-axis and runoff on y-axis with line of best fit and R^2, with points colored by reach_q (1 is suspect and 2 is degraded)
 # Scatter plot of wse vs runoff, colored by quality flag:
 quality_flags = merged_swot_reach_91270800051_mar['reach_q_b'].unique()
 colors = plt.cm.tab10(np.linspace(0, 1, len(quality_flags)))
