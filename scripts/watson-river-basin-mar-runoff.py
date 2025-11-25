@@ -17,6 +17,7 @@ import contextily as ctx
 import pyproj
 import datetime as datetime
 from scipy import stats
+from scipy.stats import pearsonr
 
 # Set working directory
 os.chdir('/Users/mayam/OneDrive/Documents/Duke University/ECS 851')
@@ -825,3 +826,57 @@ plt.legend()
 plt.grid(True, linestyle='--', alpha=0.6)
 plt.tight_layout()
 plt.show()
+
+
+# Pearson correlation between runoff and effective width in merged_effective_width_mar for reach 1
+upper_reach = [1]
+upper_reach = merged_effective_width_mar[
+    merged_effective_width_mar['section'].isin(upper_reach)]
+upper_reach = upper_reach[['eff_width', 'total_runoff']].dropna()
+corr_width_upper, p_val_width_upper = pearsonr(upper_reach['eff_width'], upper_reach['total_runoff'])
+
+# Pearson correlation between runoff and effective width in merged_effective_width_mar for reach 2
+middle_reach = [2]
+middle_reach = merged_effective_width_mar[
+    merged_effective_width_mar['section'].isin(middle_reach)]
+middle_reach = middle_reach[['eff_width', 'total_runoff']].dropna()
+corr_width_middle, p_val_width_middle = pearsonr(middle_reach['eff_width'], middle_reach['total_runoff'])
+
+# Pearson correlation between runoff and effective width in merged_effective_width_mar for reach 3
+lower_reach = [3]
+lower_reach = merged_effective_width_mar[
+    merged_effective_width_mar['section'].isin(lower_reach)]
+lower_reach = lower_reach[['eff_width', 'total_runoff']].dropna()
+corr_width_lower, p_val_width_lower = pearsonr(lower_reach['eff_width'], lower_reach['total_runoff'])
+
+# Pearson correlation between runoff and width from swot for 51 reach
+reach_51 = merged_swot_reach_91270800051_mar[['width', 'total_runoff']].dropna()
+corr_width_51, p_val_width_51 = pearsonr(reach_51['width'], reach_51['total_runoff'])
+
+# Pearson correlation between runoff and width from swot for 41 reach
+reach_41 = merged_swot_reach_91270800041_mar[['width', 'total_runoff']].dropna()
+corr_width_41, p_val_width_41 = pearsonr(reach_41['width'], reach_41['total_runoff'])
+
+# Pearson correlation between runoff and width from swot for 31 reach
+reach_31 = merged_swot_reach_91270800031_mar[['width', 'total_runoff']].dropna()
+corr_width_31, p_val_width_31 = pearsonr(reach_31['width'], reach_31['total_runoff'])
+
+# Pearson correlation between runoff and wse from swot for 51 reach
+reach_51_wse = merged_swot_reach_91270800051_mar[['wse', 'total_runoff']].dropna()
+corr_wse_51, p_val_wse_51 = pearsonr(reach_51_wse['wse'], reach_51_wse['total_runoff'])
+
+# Pearson correlation between runoff and wse from swot for 41 reach
+reach_41_wse = merged_swot_reach_91270800041_mar[['wse', 'total_runoff']].dropna()
+corr_wse_41, p_val_wse_41 = pearsonr(reach_41_wse['wse'], reach_41_wse['total_runoff'])
+
+# Pearson correlation between runoff and wse from swot for 31 reach
+reach_31_wse = merged_swot_reach_91270800031_mar[['wse', 'total_runoff']].dropna()
+corr_wse_31, p_val_wse_31 = pearsonr(reach_31_wse['wse'], reach_31_wse['total_runoff'])
+
+# Pearson correlation between runoff and wse from swot for node
+node_21 = merged_swot_node_912708000050221_mar[['width', 'total_runoff']].dropna()
+corr_width_node, p_val_width_node = pearsonr(node_21['width'], node_21['total_runoff'])
+
+# Pearson correlation between runoff and width from swot for node
+node_21_wse = merged_swot_node_912708000050221_mar[['wse', 'total_runoff']].dropna()
+corr_wse_node, p_val_wse_node = pearsonr(node_21_wse['wse'], node_21_wse['total_runoff'])
